@@ -20,6 +20,7 @@ under the License.
 
 <configuration xmlns="urn:activemq"
                xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+               xmlns:xi="http://www.w3.org/2001/XInclude"
                xsi:schemaLocation="urn:activemq /schema/artemis-configuration.xsd">
 
    <core xmlns="urn:activemq:core" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -36,13 +37,13 @@ under the License.
        -->
       <journal-type>{{ _broker.journal_type }}</journal-type>
 
-      <paging-directory>./data/paging</paging-directory>
+      <paging-directory>data/paging</paging-directory>
 
-      <bindings-directory>./data/bindings</bindings-directory>
+      <bindings-directory>data/bindings</bindings-directory>
 
-      <journal-directory>./data/journal</journal-directory>
+      <journal-directory>.ata/journal</journal-directory>
 
-      <large-messages-directory>./data/large-messages</large-messages-directory>
+      <large-messages-directory>data/large-messages</large-messages-directory>
 
       <journal-datasync>true</journal-datasync>
 
@@ -78,14 +79,6 @@ under the License.
 
 
 
-      <!--
-       This value was determined through a calculation.
-       Your system could perform 1 writes per millisecond
-       on the current journal configuration.
-       That translates as a sync write every 1000000 nanoseconds
-      -->
-      <journal-buffer-timeout>{{ _broker.journal_buffer_timeout }}</journal-buffer-timeout>
-
 
       <!-- how often we are looking for how many bytes are being used on the disk in ms -->
       <disk-scan-period>5000</disk-scan-period>
@@ -103,21 +96,31 @@ under the License.
 
       <critical-analyzer-policy>HALT</critical-analyzer-policy>
 
-      <!-- the system will enter into page mode once you hit this limit.
-           This is an estimate in bytes of how much the messages are using in memory
+      
+      <page-sync-timeout>436000</page-sync-timeout>
+
+
+      <!-- the system will enter into page mode once you hit this limit. This is an estimate in bytes of how much the messages are using in memory
 
             The system will use half of the available memory (-Xmx) by default for the global-max-size.
             You may specify a different value here if you need to customize it to your needs.
 
-            <global-max-size>100Mb</global-max-size>
+      <global-max-size>100Mb</global-max-size> -->
 
-      -->
+      <!-- the maximum number of messages accepted before entering full address mode.
+           if global-max-size is specified the full address mode will be specified by whatever hits it first. -->
+      <global-max-messages>-1</global-max-messages>
 
       <acceptors>
 
          <!-- useEpoll means: it will use Netty epoll if you are on a system (Linux) that supports it -->
          <!-- amqpCredits: The number of credits sent to AMQP producers -->
          <!-- amqpLowCredits: The server will send the # credits specified at amqpCredits at this low mark -->
+         <!-- amqpDuplicateDetection: If you are not using duplicate detection, set this to false
+                                      as duplicate detection requires applicationProperties to be parsed on the server. -->
+         <!-- amqpMinLargeMessageSize: Determines how many bytes are considered large, so we start using files to hold their data.
+                                       default: 102400, -1 would mean to disable large mesasge control -->
+
          {% for acceptor in _broker.acceptors  %}
          <acceptor name="{{ acceptor.name }}">{{ acceptor.url }}</acceptor>
          {% endfor %}
@@ -152,22 +155,37 @@ under the License.
             <address-full-policy>PAGE</address-full-policy>
             <auto-create-queues>true</auto-create-queues>
             <auto-create-addresses>true</auto-create-addresses>
-            <auto-create-jms-queues>true</auto-create-jms-queues>
-            <auto-create-jms-topics>true</auto-create-jms-topics>
          </address-setting>
          <!--default for catch all-->
          <address-setting match="#">
             <dead-letter-address>DLQ</dead-letter-address>
             <expiry-address>ExpiryQueue</expiry-address>
             <redelivery-delay>0</redelivery-delay>
-            <!-- with -1 only the global-max-size is in use for limiting -->
+
+            <!-- if max-size-bytes and max-size-messages were both enabled, the system will enter into paging
+                 based on the first attribute to hits the maximum value -->
+            <!-- limit for the address in bytes, -1 means unlimited -->
             <max-size-bytes>-1</max-size-bytes>
+
+            <!-- limit for the address in messages, -1 means unlimited -->
+            <max-size-messages>-1</max-size-messages>
+
+            <!-- the size of each file on paging. Notice we keep files in memory while they are in use.
+                 Lower this setting if you have too many queues in memory. -->
+            <page-size-bytes>10M</page-size-bytes>
+
+            <!-- limit how many messages are read from paging into the Queue. -->
+            <max-read-page-messages>-1</max-read-page-messages>
+
+            <!-- limit how much memory is read from paging into the Queue. -->
+            <max-read-page-bytes>20M</max-read-page-bytes>
+
             <message-counter-history-day-limit>10</message-counter-history-day-limit>
             <address-full-policy>PAGE</address-full-policy>
             <auto-create-queues>true</auto-create-queues>
             <auto-create-addresses>true</auto-create-addresses>
-            <auto-create-jms-queues>true</auto-create-jms-queues>
-            <auto-create-jms-topics>true</auto-create-jms-topics>
+            <auto-delete-queues>false</auto-delete-queues>
+            <auto-delete-addresses>false</auto-delete-addresses>
          </address-setting>
       </address-settings>
 
@@ -184,6 +202,21 @@ under the License.
          </address>
 
       </addresses>
+
+
+      <!-- Uncomment the following if you want to use the Standard LoggingActiveMQServerPlugin pluging to log in events
+      <broker-plugins>
+         <broker-plugin class-name="org.apache.activemq.artemis.core.server.plugin.impl.LoggingActiveMQServerPlugin">
+            <property key="LOG_ALL_EVENTS" value="true"/>
+            <property key="LOG_CONNECTION_EVENTS" value="true"/>
+            <property key="LOG_SESSION_EVENTS" value="true"/>
+            <property key="LOG_CONSUMER_EVENTS" value="true"/>
+            <property key="LOG_DELIVERING_EVENTS" value="true"/>
+            <property key="LOG_SENDING_EVENTS" value="true"/>
+            <property key="LOG_INTERNAL_EVENTS" value="true"/>
+         </broker-plugin>
+      </broker-plugins>
+      -->
 
    </core>
 </configuration>

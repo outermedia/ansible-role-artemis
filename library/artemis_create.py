@@ -64,7 +64,7 @@ def create_broker(artemis_home, ansible_module, name, path, user, password):
     err = ""
 
     if not os.path.isdir(name):
-        rc, out, err = ansible_module.run_command(cmd)
+        rc, out, err = ansible_module.run_command(cmd, umask=22)
         changed = True
 
         if len(err) > 0:
