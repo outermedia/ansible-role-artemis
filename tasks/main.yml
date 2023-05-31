@@ -11,6 +11,7 @@
     group: "{{ artemis_user.group }}"
     uid: "{{ artemis_user.uid }}"
     createhome: no
+    shell: /sbin/nologin
     state: "present"
     system: yes
 
