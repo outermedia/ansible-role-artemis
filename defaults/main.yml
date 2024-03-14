@@ -1,61 +1,50 @@
 ---
 # defaults file for artemis
 
-artemis_version: "2.9.0"
-artemis_download_url: "https://www.apache.org/dyn/closer.cgi?filename=activemq/activemq-artemis/{{ artemis_version }}/apache-artemis-{{ artemis_version }}-bin.tar.gz&action=download"
+artemis_version: "2.32.0"
+artemis_download_file: "apache-artemis-{{ artemis_version }}-bin.tar.gz"
+artemis_download_url: "https://www.apache.org/dyn/closer.cgi?filename=activemq/activemq-artemis/{{ artemis_version }}/{{ artemis_download_file }}&action=download"
+artemis_checksum_url: "https://archive.apache.org/dist/activemq/activemq-artemis/2.32.0/{{ artemis_download_file }}.sha512"
 
-artemis_group:
-  name: "artemis"
-  gid: 501
+artemis_user: "artemis"
+artemis_group: "artemis"
 
-artemis_user:
-  name: "artemis"
-  group: "{{ artemis_group.name }}"
-  uid: 501
-  createhome: no
-  system: yes
-
+artemis_tmp_dir: "/tmp"
 artemis_install_dir: "/opt"
-artemis_log_dir: []
-artemis_home: "{{ artemis_install_dir }}/apache-artemis-{{ artemis_version }}"
-artemis_home_symlink: "{{ artemis_install_dir }}/artemis"
+artemis_home: "{{ artemis_install_dir }}/apache-artemis"
+artemis_brokers_path: /var/lib
 
+artemis_broker_xml_default:
+  - xpath: "/conf:configuration/core:core/core:name"
+    value: 0.0.0.0
+  - xpath: '/conf:configuration/core:core/core:journal-type'
+    value: ASYNCIO
+  - xpath: '/conf:configuration/core:core/core:acceptors/core:acceptor[@name="amqp"]'
+    state: absent
+  - xpath: '/conf:configuration/core:core/core:acceptors/core:acceptor[@name="stomp"]'
+    state: absent
+  - xpath: '/conf:configuration/core:core/core:acceptors/core:acceptor[@name="hornetq"]'
+    state: absent
+  - xpath: '/conf:configuration/core:core/core:acceptors/core:acceptor[@name="mqtt"]'
+    state: absent
+
+artemis_bootstrap_xml_default:
+  - xpath: '/broker:broker/broker:web/broker:binding[@name="artemis"]'
+    value: http://localhost:8161
+    attribute: uri
+
+artemis_jolokia_access_xml_default: []
+
+# The role only has one handler for all brokers, so we cannot reliable restart each broker
+# separatly. 
+# Since i don't need multiple brokers, i implemented a quick solution and restart all artemis_brokers
+# if the handler is notfofied.
+# A better solution would be to have a separate broker role as part of collection.
 artemis_brokers:
   - name: "artemis-broker"
-    path: "/var/lib"
     user: "admin"
     password: "admin"
 
-artemis_host: "0.0.0.0"
-artemis_port_artemis: 61616
-artemis_port_amqp: 5672
-artemis_port_stomp: 61613
-artemis_port_hornetq: 5445
-artemis_port_mqtt: 1883
+artemis_log_dir: []
 
-artemis_journal_type: "NIO"
-artemis_journal_pool_files: 10
-artemis_journal_buffer_timeouts:
-  NIO: "3333333"
-  ASYNCIO: "500000"
-artemis_journal_buffer_timeout: "{{ artemis_journal_buffer_timeouts[artemis_journal_type] }}"
-
-artemis_acceptors:
-  - name: "artemis"
-    url: "tcp://{{ artemis_host }}:{{ artemis_port_artemis }}?tcpSendBufferSize=1048576;tcpReceiveBufferSize=1048576;protocols=CORE,AMQP,STOMP,HORNETQ,MQTT,OPENWIRE;useEpoll=true;amqpCredits=1000;amqpLowCredits=300"
-  - name: "amqp"
-    url: "tcp://{{ artemis_host }}:{{ artemis_port_amqp }}?tcpSendBufferSize=1048576;tcpReceiveBufferSize=1048576;protocols=AMQP;useEpoll=true;amqpCredits=1000;amqpLowCredits=300"
-  - name: "stomp"
-    url: "tcp://{{ artemis_host }}:{{ artemis_port_stomp }}?tcpSendBufferSize=1048576;tcpReceiveBufferSize=1048576;protocols=STOMP;useEpoll=true"
-  - name: "hornetq"
-    url: "tcp://{{ artemis_host }}:{{ artemis_port_hornetq }}?protocols=HORNETQ,STOMP;useEpoll=true"
-  - name: "mqtt"
-    url: "tcp://{{ artemis_host }}:{{ artemis_port_mqtt }}?tcpSendBufferSize=1048576;tcpReceiveBufferSize=1048576;protocols=MQTT;useEpoll=true"
-
-artemis_web_port: 8161
-artemis_web_host: localhost
-
-artemis_log_file: "${sys:artemis.instance}/log/artemis.log"
-
-jolokia_cors:
-  - "*://localhost*"
+# artemis_log_file: "${sys:artemis.instance}/log/artemis.log"

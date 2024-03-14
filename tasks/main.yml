@@ -1,51 +1,71 @@
 ---
+
+- name: Install dependencie
+  ansible.builtin.apt:
+    name: 
+    - libaio1
+    - python{{ '3' if ansible_python_version is version('3', '>=') else ''}}-lxml
+    update_cache: yes
+    cache_valid_time: 3600
+  when: ansible_os_family == "Debian"
+
 - name: "Add Artemis group"
-  group:
-    name: "{{ artemis_user.group }}"
-    gid: "{{ artemis_group.gid }}"
+  ansible.builtin.group:
+    name: "{{ artemis_group }}"
     state: "present"
 
 - name: "Add Artemis user"
-  user:
-    name: "{{ artemis_user.name }}"
-    group: "{{ artemis_user.group }}"
-    uid: "{{ artemis_user.uid }}"
+  ansible.builtin.user:
+    name: "{{ artemis_user }}"
+    group: "{{ artemis_group }}"
     createhome: no
     shell: /sbin/nologin
     state: "present"
     system: yes
 
-- name: "Create requires directories"
-  file:
-    path: "{{ item }}"
-    state: directory
-    mode: 0755
-    owner: "{{ artemis_user.name }}"
-    group: "{{ artemis_user.group }}"
-  with_items:
-    - "{{ artemis_home }}"
-    - "{{ artemis_log_dir }}"
+- name: Check if Artemis binary exists
+  ansible.builtin.stat:
+    path: "{{ artemis_tmp_dir }}/{{ artemis_download_file }}"
+    get_attributes: false
+    get_checksum: false
+    get_mime: false
+  register: tar_file
 
-- name: "Download and extract archive"
-  unarchive:
-    src: "{{ artemis_download_url }}"
-    dest: "{{ artemis_install_dir }}"
-    remote_src: yes
-    owner: "{{ artemis_user.name }}"
-    group: "{{ artemis_user.group }}"
-    creates: "{{ artemis_home }}/bin/artemis"
-  notify: restart broker
+# Install new version
+- block:
+  - name: Get Artemis binary checksum
+    ansible.builtin.uri:
+      url: "{{ artemis_checksum_url }}"
+      return_content: true
+    register: sha512_sum
 
-- name: "Create link"
-  file:
-    src: "{{ artemis_home }}"
-    dest: "{{ artemis_home_symlink }}"
-    state: link
-    owner: "{{ artemis_user.name }}"
-    group: "{{ artemis_user.group }}"
+  - ansible.builtin.set_fact:
+      sha512_sum: "{{ sha512_sum.content.split(' ')[0] }}"
+
+  - name: Download Artemis binary
+    ansible.builtin.get_url:
+      url: "{{ artemis_download_url }}"
+      dest: "{{ artemis_tmp_dir }}/{{ artemis_download_file }}"
+      checksum: sha512:{{ sha512_sum }}
+
+  - name: Unpack artemis binary
+    ansible.builtin.unarchive:
+      remote_src: "yes"
+      src: "{{ artemis_tmp_dir }}/{{ artemis_download_file }}"
+      dest: "{{ artemis_install_dir }}/"
+      creates: "{{ artemis_install_dir }}/apache-artemis-{{ artemis_version }}"
+    notify: restart broker
+
+  - name: "Create link"
+    ansible.builtin.file:
+      src: "{{ artemis_install_dir }}/apache-artemis-{{ artemis_version }}"
+      dest: "{{ artemis_home }}"
+      state: link
+
+  when: not tar_file.stat.exists
 
 - name: "Create brokers"
-  include_tasks: instance/instance.yml
+  ansible.builtin.include_tasks: instance/instance.yml
   loop: "{{ artemis_brokers }}"
   loop_control:
     loop_var: broker

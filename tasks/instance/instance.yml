@@ -1,44 +1,50 @@
 ---
 - name: "Init broker with default values."
-  set_fact:
+  ansible.builtin.set_fact:
     _broker:
-      artemis_home: "{{ broker.artemis_home | default(artemis_home_symlink) }}"
+      artemis_home: "{{ broker.artemis_home | default(artemis_home) }}"
       name: "{{ broker.name }}"
-      path: "{{ broker.path }}"
+      path: "{{ broker.path | default(artemis_brokers_path ) }}"
       user: "{{ broker.user }}"
       password: "{{ broker.password }}"
-      host: "{{ broker.host | default(artemis_host) }}"
-      journal_type: "{{ broker.journal_type | default(artemis_journal_type) }}"
-      journal_pool_files: "{{ broker.journal_pool_files | default(artemis_journal_pool_files) }}"
-      journal_buffer_timeout: "{{ artemis_journal_buffer_timeout }}"
-      acceptors: "{{ broker.acceptors | default(artemis_acceptors) }}"
-      web_port: "{{ broker.web_port | default(artemis_web_port) }}"
-      web_host: "{{ broker.web_host | default(artemis_web_host) }}"
-      jolokia_cors: "{{ broker.jolokia_cors | default(jolokia_cors) }}"
-      log_file: "{{ broker.log_file | default(artemis_log_file) }}"
+      broker_xml: "{{ broker.broker_xml | d(artemis_broker_xml_default) }}"
+      bootstrap_xml: "{{ broker.bootstrap_xml | d(artemis_bootstrap_xml_default) }}"
+      jolokia_access_xml: "{{ broker.jolokia_access_xml| d(artemis_jolokia_access_xml_default) }}"
+
+      # log_file: "{{ broker.log_file | default(artemis_log_file) }}"
 
 - name: "Check if {{ _broker.name }} already created"
-  stat: path={{ _broker.path }}/{{ _broker.name }}
+  ansible.builtin.stat: path={{ _broker.path }}/{{ _broker.name }}
   register: broker_path
 
+- debug:
+    var: broker_path
+
 - name: "Create broker {{ _broker.name }}"
-  artemis_create:
-    name: "{{ _broker.name }}"
-    path: "{{ _broker.path }}"
-    user: "{{ _broker.user }}"
-    password: "{{ _broker.password }}"
-  when: not broker_path.stat.exists
+  ansible.builtin.command:
+    argv:
+    - "{{ artemis_home }}/bin/artemis"
+    - create
+    - "{{ _broker.path }}/{{ _broker.name }}"
+    - --user
+    - "{{ _broker.user }}"
+    - --password
+    - "{{ _broker.password }}"
+    - --allow-anonymous
+  args:
+    creates: "{{ _broker.path }}/{{ _broker.name }}"
+  no_log: true
 
 - name: "Update owner / group for broker folder"
-  file:
+  ansible.builtin.file:
     path: "{{ _broker.path }}/{{ _broker.name }}"
     state: directory
-    recurse: true
-    owner: "{{ artemis_user.name }}"
-    group: "{{ artemis_user.group }}"
+    recurse: True
+    owner: "{{ artemis_user}}"
+    group: "{{ artemis_group }}"
 
 - name: "Configure instance"
-  include_tasks: configure.yml
+  ansible.builtin.include_tasks: configure.yml
 
 - name: "Install broker as service"
-  include_tasks: service.yml
+  ansible.builtin.include_tasks: service.yml

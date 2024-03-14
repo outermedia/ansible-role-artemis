@@ -1,30 +1,67 @@
 ---
-- name: "Configure {{ _broker.name }} broker.xml"
-  template:
-    src: "artemis/etc/broker.xml"
-    dest: "{{ _broker.path }}/{{ _broker.name }}/etc/broker.xml"
-  notify: "restart broker"
 
-- name: "Configure {{ _broker.name }} bootstrap.xml"
-  template:
-    src: "artemis/etc/bootstrap.xml"
-    dest: "{{ _broker.path }}/{{ _broker.name }}/etc/bootstrap.xml"
-  notify: "restart broker"
+# TODO: add_children is not idempotent, in case of using add_children its existence should
+# be checked first and removed from list if necessary.
 
-- name: "Ensure ARTEMIS_HOME is correct in artemis.profile"
-  lineinfile:
-    dest: "{{ _broker.path }}/{{ _broker.name }}/etc/artemis.profile"
-    regexp: "^ARTEMIS_HOME"
-    line: "ARTEMIS_HOME='{{ _broker.artemis_home }}'"
+- name: Update broker.xml
+  community.general.xml:
+    path: "{{ _broker.path }}/{{ _broker.name }}/etc/broker.xml"
+    xpath: "{{ item.xpath }}"
+    value: "{{ item.value | default(omit)}}"
+    state: "{{ item.state | default(omit)}}"
+    set_children: "{{ item.set_children | default(omit)}}"
+    add_children: "{{ item.add_children | default(omit)}}"
+    insertafter: "{{ item.insertafter | default(omit)}}"
+    insertbefore: "{{ item.insertbefore | default(omit)}}"
+    attribute: "{{ item.attribute | default(omit)}}"
+    namespaces: 
+      conf: urn:activemq
+      core: urn:activemq:core
+      xi: http://www.w3.org/2001/XInclude
+    pretty_print: False
+  with_items: "{{ _broker.broker_xml }}"
+  notify: restart broker
 
-- name: "Configure {{ _broker.name }} log4j2.properties"
-  template:
-    src: "artemis/etc/log4j2.properties"
-    dest: "{{ _broker.path }}/{{ _broker.name }}/etc/log4j2.properties"
-  notify: "restart broker"
+- name: Update bootstrap.xml
+  community.general.xml:
+    path: "{{ _broker.path }}/{{ _broker.name }}/etc/bootstrap.xml"
+    xpath: "{{ item.xpath }}"
+    value: "{{ item.value | default(omit)}}"
+    state: "{{ item.state | default(omit)}}"
+    set_children: "{{ item.set_children | default(omit)}}"
+    add_children: "{{ item.add_children | default(omit)}}"
+    insertafter: "{{ item.insertafter | default(omit)}}"
+    insertbefore: "{{ item.insertbefore | default(omit)}}"
+    attribute: "{{ item.attribute | default(omit)}}"
+    namespaces: 
+      broker: http://activemq.apache.org/schema
+    pretty_print: False
+  with_items: "{{ _broker.bootstrap_xml }}"
+  notify: restart broker
 
-- name: "Configure {{ _broker.name }} jolokia-access.xml"
-  template:
-    src: "artemis/etc/jolokia-access.xml"
-    dest: "{{ _broker.path }}/{{ _broker.name }}/etc/jolokia-access.xml"
-  notify: "restart broker"
+- name: Update jolokia-access.xml
+  community.general.xml:
+    path: "{{ _broker.path }}/{{ _broker.name }}/etc/jolokia-access.xml"
+    xpath: "{{ item.xpath }}"
+    value: "{{ item.value | default(omit)}}"
+    state: "{{ item.state | default(omit)}}"
+    set_children: "{{ item.set_children | default(omit)}}"
+    add_children: "{{ item.add_children | default(omit)}}"
+    insertafter: "{{ item.insertafter | default(omit)}}"
+    insertbefore: "{{ item.insertbefore | default(omit)}}"
+    attribute: "{{ item.attribute | default(omit)}}"
+    pretty_print: False
+  with_items: "{{ _broker.jolokia_access_xml }}"
+  notify: restart broker
+
+# - name: "Ensure ARTEMIS_HOME is correct in artemis.profile"
+#   lineinfile:
+#     dest: "{{ _broker.path }}/{{ _broker.name }}/etc/artemis.profile"
+#     regexp: "^ARTEMIS_HOME"
+#     line: "ARTEMIS_HOME='{{ _broker.artemis_home }}'"
+#
+# - name: "Configure {{ _broker.name }} log4j2.properties"
+#   template:
+#     src: "artemis/etc/log4j2.properties"
+#     dest: "{{ _broker.path }}/{{ _broker.name }}/etc/log4j2.properties"
+#   notify: "restart broker"

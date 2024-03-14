@@ -1,22 +1,28 @@
 ---
 - name: "Init service var with default values."
-  set_fact:
+  ansible.builtin.set_fact:
     _service:
-      name: "{{ _broker.name }}"
-      user: "{{ artemis_user.name }}"
-      group: "{{ artemis_user.group }}"
+      name: "artemis-{{ _broker.name }}"
+      user: "{{ artemis_user }}"
+      group: "{{ artemis_group }}"
       start: "{{ _broker.path }}/{{ _broker.name }}/bin/artemis-service start"
       stop: "{{ _broker.path }}/{{ _broker.name }}/bin/artemis-service stop"
 
 - name: "Install {{ _service.name }} as service"
-  template:
+  ansible.builtin.template:
     src: "etc/systemd/artemis.service"
     dest: "/etc/systemd/system/{{ _service.name }}.service"
     owner: "{{ _service.user }}"
     group: "{{ _service.group }}"
 
 - name: "Enable service"
-  service:
+  ansible.builtin.service:
     name: "{{ _service.name }}"
     enabled: yes
   notify: "restart broker"
+
+# # there is only one handler but the user can configure many brokers in ansible_brokers
+# # we need to handle the handler for the current brokwer before the next one overwrites everything
+# - ansible.builtin.meta:
+#     flush_handlers
+#   when: artemis_brokers | length > 1

@@ -1,5 +1,9 @@
 ---
+
 - name: "restart broker"
   service:
-    name: "{{ _broker.name }}"
+    name: "artemis-{{ broker.name }}"
     state: restarted
+  loop: "{{artemis_brokers}}"
+  loop_control:
+    loop_var: broker
